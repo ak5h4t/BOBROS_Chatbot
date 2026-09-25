@@ -78,21 +78,42 @@
     import { createElement as h, Fragment } from "react";
     import { createRoot } from "react-dom/client";
 
-    // Fresh page load or refresh: wipe any old chat history.
+    // Debug logging: every line starts with [abyudh] in the browser Console.
+    const log = (...args) => console.log("[abyudh]", ...args);
+    const messenger = () => document.querySelector("df-messenger");
+    log("script started");
+    try {
+      log("localStorage keys:", Object.keys(localStorage));
+      log("sessionStorage keys:", Object.keys(sessionStorage));
+    } catch (e) { log("storage not readable", e); }
+
     let greeted = false;
-    window.addEventListener("df-messenger-loaded", () => {
-      document.querySelector("df-messenger")?.startNewSession();
+
+    // Fresh page load or refresh: wipe any old chat history.
+    function onLoaded() {
+      log("widget loaded");
+      try { messenger().clearStorage(); log("clearStorage done"); }
+      catch (e) { log("clearStorage error", e); }
+      try { messenger().startNewSession(); log("startNewSession done"); }
+      catch (e) { log("startNewSession error", e); }
       greeted = false;
-    });
+    }
 
     // First time the chat is opened: fire the WELCOME event in the agent,
     // so Abyudh greets the user without them typing first.
-    window.addEventListener("df-chat-open-changed", (event) => {
+    function onOpenChanged(event) {
+      log("chat open changed:", event.detail);
       if (event.detail?.isOpen && !greeted) {
         greeted = true;
-        document.querySelector("df-messenger")?.sendRequest("event", "WELCOME");
+        Promise.resolve(messenger().sendRequest("event", "WELCOME"))
+          .then(() => log("WELCOME sent"))
+          .catch((e) => log("WELCOME error", e));
       }
-    });
+    }
+
+    // "true" = capture mode: catches the signals even if they don't bubble up.
+    window.addEventListener("df-messenger-loaded", onLoaded, true);
+    window.addEventListener("df-chat-open-changed", onOpenChanged, true);
 
     // The chatbot component (same as ChatWidget.jsx, written without JSX).
     function ChatWidget() {
